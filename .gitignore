@@ -57,3 +57,6 @@ coursier
 
 # Sourcegraph specific
 index.scip
+
+# Python venv
+venv

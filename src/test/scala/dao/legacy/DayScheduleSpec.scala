@@ -2,8 +2,12 @@ package io.github.ntdesmond.serdobot
 package dao.legacy
 
 import zio.Scope
-import zio.json.readJsonLinesAs
+import zio.ZIO
+import zio.json.DecoderOps
 import zio.test.*
+
+import scala.io.Codec
+import scala.io.Source
 
 object DayScheduleSpec extends ZIOSpecDefault:
   private val testSchedule = DaySchedule(
@@ -182,9 +186,9 @@ object DayScheduleSpec extends ZIOSpecDefault:
   def spec: Spec[TestEnvironment & Scope, Any] = suite("DayScheduleSpec")(
     test("json decode and to domain") {
       for
-        schedule <- readJsonLinesAs[DaySchedule](
-          getClass.getResource("/09.01.json"),
-        ).runHead.someOrFailException
+        scheduleFile <- ZIO
+          .attempt(Source.fromResource("09.01.json")(Codec("utf-8")).mkString)
+        schedule       <- ZIO.fromEither(scheduleFile.fromJson[DaySchedule])
         domainSchedule <- schedule.toDomain
       yield assertTrue(
         schedule == testSchedule,

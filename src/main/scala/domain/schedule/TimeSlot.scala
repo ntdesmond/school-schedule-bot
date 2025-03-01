@@ -10,7 +10,7 @@ case class TimeSlot(start: LocalTime, end: LocalTime)
 
 object TimeSlot:
   def fromString(s: String): Either[ParseError, TimeSlot] =
-    val pattern = """(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})""".r
+    val pattern = """(\d{1,2}:\d{2})\D+(\d{1,2}:\d{2})""".r.unanchored
     for
       parsed <-
         s match
