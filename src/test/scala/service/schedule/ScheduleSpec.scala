@@ -13,9 +13,9 @@ object ScheduleSpec extends ZIOSpecDefault:
           date <- zio.Clock.instant.map(java.util.Date.from)
           path <- zio
             .ZIO
-            .fromNullable(Schedule.getClass.getResource(s"/$filename"))
+            .fromNullable(PdfScheduleParser.getClass.getResource(s"/$filename"))
             .map(_.getPath.stripPrefix("/"))
-          schedule <- Schedule.parseFile(date, path)
+          schedule <- PdfScheduleParser.parseFile(date, path)
           _        <- zio.Console.printLine(schedule.header)
           _        <- zio.Console.printLine(schedule.timeSlots)
           _ <- ZIO.foreachDiscard(schedule.classSchedules)(

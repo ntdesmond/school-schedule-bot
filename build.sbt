@@ -5,6 +5,7 @@ ThisBuild / scalaVersion := "3.3.3"
 ThisBuild / scalacOptions ++= Seq(
   "-source:future",
   "-encoding:utf-8",
+  "-feature",
 )
 
 lazy val root = (project in file(".")).settings(
@@ -15,7 +16,7 @@ lazy val root = (project in file(".")).settings(
 )
 
 libraryDependencies ++= Seq(
-  "dev.zio"      %% "zio"                 % "2.1.9",
+  "dev.zio"      %% "zio"                 % "2.1.11",
   "dev.zio"      %% "zio-prelude"         % "1.0.0-RC31",
   "dev.zio"      %% "zio-config"          % "4.0.2",
   "dev.zio"      %% "zio-config-typesafe" % "4.0.2",

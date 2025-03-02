@@ -1,19 +1,17 @@
 package io.github.ntdesmond.serdobot
 package service.schedule
 
-import me.shadaj.scalapy.py
-import me.shadaj.scalapy.py.PyQuote
 import zio.IO
+import zio.Task
 import zio.ZIO
+
 import domain.schedule.*
 import domain.ClassName
 import domain.ParseError
 
 import java.util.Date
 
-object Schedule:
-  private val camelot = py.module("camelot")
-
+object PdfScheduleParser:
   private def parseTextOnlyRow(cells: List[PdfCell]): String =
     cells.map(_.text).mkString
 
@@ -134,37 +132,47 @@ object Schedule:
         yield (headerOrClassNames.left.toOption, lessons)
       case _ => ZIO.fail(ParseError("Table is empty"))
 
+  private def parseTables: List[List[List[PdfCell]]] => IO[
+    domain.ParseError,
+    (String, List[ClassSchedule], List[TimeSlot]),
+  ] = {
+    case firstTable :: rest =>
+      for
+        (maybeHeader, lessons) <- parseTable(firstTable)
+        lessons <-
+          ZIO.foldLeft(rest)(lessons)((acc, table) =>
+            parseTable(table).map { case (_, newLessons) =>
+              acc ++ newLessons
+            },
+          )
+        classSchedules = lessons
+          .groupMap(_._1._1)(_._2)
+          .map { (className, lessons) =>
+            ClassSchedule(className, lessons.toList)
+          }
+          .toList
+        dayInfo <- ZIO.getOrFailWith(
+          ParseError("Table header is empty"),
+        )(maybeHeader)
+      yield (
+        dayInfo,
+        classSchedules,
+        lessons.keys.map(_._2).toSet.toList,
+      )
+    case _ => ZIO.fail(ParseError("No tables found in the file"))
+  }
+
   def parseFile(
     date: Date,
     path: String,
-  ): zio.IO[domain.ParseError, DaySchedule] =
-    val tables = camelot
-      .read_pdf(path, flavor = "lattice", line_scale = 100, strip_text = "\n")
-    val cells = py"[t.cells for t in $tables]".as[List[List[List[PdfCell]]]]
-
-    cells match
-      case firstTable :: rest =>
-        for
-          (maybeHeader, lessons) <- parseTable(firstTable)
-          lessons <-
-            ZIO.foldLeft(rest)(lessons)((acc, table) =>
-              parseTable(table).map { case (_, newLessons) =>
-                acc ++ newLessons
-              },
-            )
-          classSchedules = lessons
-            .groupMap(_._1._1)(_._2)
-            .map { (className, lessons) =>
-              ClassSchedule(className, lessons.toList)
-            }
-            .toList
-          dayInfo <- ZIO.getOrFailWith(
-            ParseError("Table header is empty"),
-          )(maybeHeader)
-        yield DaySchedule(
-          date,
-          dayInfo,
-          classSchedules,
-          lessons.keys.map(_._2).toSet.toList,
-        )
-      case _ => ZIO.fail(ParseError("No tables found in the file"))
+  ): Task[DaySchedule] = ZIO
+    .attempt {
+      CamelotModule
+        .read_pdf(path, line_scale = 100, strip_text = "\n")
+        .toList
+        .map(_.cells)
+    }
+    .flatMap(parseTables)
+    .map { case (dayInfo, classSchedules, timeSlots) =>
+      DaySchedule(date, dayInfo, classSchedules, timeSlots)
+    }
