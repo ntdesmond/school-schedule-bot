@@ -31,75 +31,44 @@ object PdfScheduleParser:
       case Nil => ZIO.fail(ParseError("No class names found"))
 
   private def parseLessonsRow(
-    maybePreviousTimeSlot: Option[TimeSlot],
+    maybePreviousRow: Option[List[Lesson]],
     classes: List[ClassName],
-    lessonsMap: Map[(ClassName, TimeSlot), Lesson],
     row: List[PdfCell],
-  ): IO[ParseError, (TimeSlot, Map[(ClassName, TimeSlot), Lesson])] =
-
-    def getLesson(
-      map: Map[(ClassName, TimeSlot), Lesson],
-      className: ClassName,
-      timeSlot: TimeSlot,
-    ) =
-      ZIO.getOrFailWith(
-        ParseError(
-          s"Could not find the original cell ($className, $timeSlot) while parsing a span",
-        ),
-      )(map.get((className, timeSlot)))
-
-    def getLessonFromLeft(
-      currentLessonsMap: Map[(ClassName, TimeSlot), Lesson],
-      maybePreviousClassName: Option[ClassName],
-      timeSlot: TimeSlot,
-    ) =
-      for
-        previousClassName <-
-          ZIO.getOrFailWith(
-            ParseError("First cell cannot be a horizontal span"),
-          )(maybePreviousClassName)
-        lesson <- getLesson(currentLessonsMap, previousClassName, timeSlot)
-      yield lesson
-
-    def getLessonFromTop(className: ClassName) =
-      for
-        previousTimeSlot <-
-          ZIO.getOrFailWith(
-            ParseError("First row cannot contain a vertical span"),
-          )(maybePreviousTimeSlot)
-        lesson <- getLesson(lessonsMap, className, previousTimeSlot)
-      yield lesson
-
+  ): IO[ParseError, (TimeSlot, List[Lesson])] =
     def parseLessons(timeSlot: TimeSlot, lessons: List[PdfCell]) =
+      val iterable = maybePreviousRow match
+        case Some(row) => lessons.zip(classes).zip(row.map(Some.apply))
+        case None      => lessons.zip(classes).map((_, None))
       ZIO
-        .foldLeft(lessons.zip(classes))((Option.empty[ClassName], lessonsMap)) {
-          case ((previousClassName, lessonsMap), (lessonCell, className)) =>
+        .foldLeft(iterable)(List.empty[Lesson]) {
+          case (
+                currentRowLessons,
+                ((lessonCell, className), lessonFromTop),
+              ) =>
             {
               (lessonCell.left, lessonCell.top) match
                 case (true, true) => Lesson(lessonCell.text)
-                case (false, _) => getLessonFromLeft(
-                    lessonsMap,
-                    previousClassName,
-                    timeSlot,
-                  )
-                case (true, false) => getLessonFromTop(className)
-            }.map {
-              lesson =>
-                (
-                  Some(className),
-                  lessonsMap.updated((className, timeSlot), lesson),
-                )
-            }
+                case (false, _) =>
+                  ZIO.getOrFailWith(
+                    ParseError(
+                      s"No lesson found to the left of $className",
+                    ),
+                  )(currentRowLessons.headOption)
+                case (true, false) =>
+                  ZIO.getOrFailWith(
+                    ParseError("No lesson found above the current"),
+                  )(lessonFromTop)
+            }.map(_ :: currentRowLessons)
         }
-        .map(_._2)
+        .map(_.reverse)
 
     row match
       case timeCell :: lessons =>
         for
-          timeSlot   <- ZIO.fromEither(TimeSlot.fromString(timeCell.text))
-          updatedMap <- parseLessons(timeSlot, lessons)
-        yield (timeSlot, updatedMap)
-      case Nil => ZIO.fail(ParseError("No lessons in a table"))
+          timeSlot      <- ZIO.fromEither(TimeSlot.fromString(timeCell.text))
+          parsedLessons <- parseLessons(timeSlot, lessons)
+        yield (timeSlot, parsedLessons)
+      case Nil => ZIO.fail(ParseError("No lessons in a row"))
 
   private def parseTable(table: List[List[PdfCell]]): IO[
     ParseError,
@@ -116,19 +85,29 @@ object PdfScheduleParser:
             ZIO.foldLeft(rest)(
               (
                 headerOrClassNames.toOption,
-                Option.empty[TimeSlot],
+                Option.empty[List[Lesson]],
                 Map.empty[(ClassName, TimeSlot), Lesson],
               ),
             ) {
-              case ((classNames, previousTimeSlot, lessons), row) =>
-                classNames match
-                  case None => parseClassNamesRow(row).map { classes =>
-                      (Some(classes), None, lessons)
+              case ((maybeClassNames, previousRowLessons, lessons), row) =>
+                maybeClassNames match
+                  case None => parseClassNamesRow(row).map { classNames =>
+                      (Some(classNames), None, lessons)
                     }
-                  case Some(classes) =>
-                    parseLessonsRow(previousTimeSlot, classes, lessons, row)
-                      .map { case (timeSlot, updatedLessons) =>
-                        (classNames, Some(timeSlot), updatedLessons)
+                  case Some(classNames) =>
+                    parseLessonsRow(previousRowLessons, classNames, row)
+                      .map { case (timeSlot, rowLessons) =>
+                        (
+                          maybeClassNames,
+                          Some(rowLessons),
+                          lessons ++
+                            classNames
+                              .zip(rowLessons)
+                              .map {
+                                case (className, lesson) =>
+                                  (className, timeSlot) -> lesson
+                              },
+                        )
                       }
                       .orElseSucceed((None, None, lessons))
             }
@@ -172,7 +151,12 @@ object PdfScheduleParser:
     ScalaPyExtensions
       .attemptWithStderr(
         CamelotModule
-          .read_pdf(path, line_scale = 100, strip_text = "\n")
+          .read_pdf(
+            path,
+            line_scale = 100,
+            strip_text = "\n",
+            split_text = true,
+          )
           .toList
           .map(_.cells),
       )

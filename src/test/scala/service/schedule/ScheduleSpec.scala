@@ -23,6 +23,9 @@ object ScheduleSpec extends SerdobotSpec:
             .fromNullable(PdfScheduleParser.getClass.getResource(s"/$filename"))
             .map(_.getPath.stripPrefix("/"))
           schedule <- PdfScheduleParser.parseFile(date, path)
+          _        <- zio.Console.printLine(schedule.header)
+          _ <- ZIO
+            .foreachDiscard(schedule.classSchedules)(zio.Console.printLine(_))
         yield assertCompletes
       }
     },

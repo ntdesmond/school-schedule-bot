@@ -85,7 +85,7 @@ object CamelotModule extends py.StaticModule("camelot"):
     line_tol: Int = 2,
     joint_tol: Int = 2,
     threshold_blocksize: Int = 15,
-    threshold_constant: Int = -1,
+    threshold_constant: Int = -2,
     iterations: Int = 0,
     backend: String = "pdfium",
     use_fallback: Boolean = true,
