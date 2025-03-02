@@ -1,13 +1,16 @@
 package io.github.ntdesmond.serdobot
 package service.schedule
 
+import domain.ClassName
+import domain.ParseError
+import domain.schedule.*
+import scalapy.ScalaPyExtensions
+import scalapy.modules.camelot.CamelotModule
+import scalapy.modules.camelot.PdfCell
+
 import zio.IO
 import zio.Task
 import zio.ZIO
-
-import domain.schedule.*
-import domain.ClassName
-import domain.ParseError
 
 import java.util.Date
 
@@ -165,14 +168,16 @@ object PdfScheduleParser:
   def parseFile(
     date: Date,
     path: String,
-  ): Task[DaySchedule] = ZIO
-    .attempt {
-      CamelotModule
-        .read_pdf(path, line_scale = 100, strip_text = "\n")
-        .toList
-        .map(_.cells)
-    }
-    .flatMap(parseTables)
-    .map { case (dayInfo, classSchedules, timeSlots) =>
-      DaySchedule(date, dayInfo, classSchedules, timeSlots)
-    }
+  ): Task[DaySchedule] =
+    ScalaPyExtensions
+      .attemptWithStderr(
+        CamelotModule
+          .read_pdf(path, line_scale = 100, strip_text = "\n")
+          .toList
+          .map(_.cells),
+      )
+      .flatMap { case (result, stderr) => ZIO.logWarning(stderr).as(result) }
+      .flatMap(parseTables)
+      .map { case (dayInfo, classSchedules, timeSlots) =>
+        DaySchedule(date, dayInfo, classSchedules, timeSlots)
+      }

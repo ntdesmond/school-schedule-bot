@@ -9,7 +9,7 @@ import zio.test.*
 import scala.io.Codec
 import scala.io.Source
 
-object DayScheduleSpec extends ZIOSpecDefault:
+object DayScheduleSpec extends SerdobotSpec:
   private val testSchedule = DaySchedule(
     None, // 09.01, but ignored for simpler parsing
     "Четверг 9 января",

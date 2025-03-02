@@ -1,9 +1,10 @@
 package io.github.ntdesmond.serdobot
-package service.schedule
+package scalapy.modules.camelot
 
-import scala.language.adhocExtensions
 import me.shadaj.scalapy.py
 import me.shadaj.scalapy.py.PyQuote
+
+import scala.language.adhocExtensions
 
 @py.native
 class TableList extends py.Object:

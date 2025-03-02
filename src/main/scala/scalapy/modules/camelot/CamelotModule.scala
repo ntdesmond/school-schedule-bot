@@ -1,8 +1,9 @@
 package io.github.ntdesmond.serdobot
-package service.schedule
+package scalapy.modules.camelot
+
+import me.shadaj.scalapy.py
 
 import scala.language.dynamics
-import me.shadaj.scalapy.py
 
 @py.native
 object CamelotModule extends py.StaticModule("camelot"):
@@ -15,7 +16,8 @@ object CamelotModule extends py.StaticModule("camelot"):
     * @param password
     *   Password for decryption.
     * @param flavor
-    *   The parsing method to use (Only ‘lattice’ supported in this overload).
+    *   The parsing method to use (Only "lattice" is supported in this
+    *   overload).
     * @param suppress_stdout
     *   Whether to print all logs and warnings.
     * @param parallel

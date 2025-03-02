@@ -4,7 +4,8 @@ package dao.legacy
 import domain.schedule.ClassSchedule
 
 import zio.json.JsonDecoder
-import zio.json.ast.{Json, JsonCursor}
+import zio.json.ast.Json
+import zio.json.ast.JsonCursor
 
 import java.util.Date
 
@@ -62,8 +63,8 @@ object DaySchedule:
 
   given JsonDecoder[DaySchedule] = JsonDecoder[Json].mapOrFail { json =>
     for
-      dayInfo <- json.get(dayInfoCursor)
+      dayInfo     <- json.get(dayInfoCursor)
       updatedJson <- json.delete(dayInfoCursor)
-      columns <- updatedJson.as[Map[String, List[String]]]
+      columns     <- updatedJson.as[Map[String, List[String]]]
     yield DaySchedule(None, dayInfo.value, columns)
   }

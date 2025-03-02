@@ -28,6 +28,8 @@ libraryDependencies ++= Seq(
   "io.scalaland" %% "chimney"             % "1.5.0",
   "com.beachape" %% "enumeratum"          % "1.7.5",
   "dev.scalapy"  %% "scalapy-core"        % "0.5.3",
+  "tf.tofu"      %% "tofu-zio2-logging"   % "0.13.6",
+  "tf.tofu"      %% "tofu-logging-layout" % "0.13.6",
 )
 
 // ScalaPy config

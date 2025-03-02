@@ -18,7 +18,7 @@ object TimeSlot:
           case _                   => Left(ParseError(s"Invalid time slot: $s"))
       (start, end) = parsed
       validatedStart <- parseTime(start)
-      validatedEnd <- parseTime(end)
+      validatedEnd   <- parseTime(end)
     yield TimeSlot(validatedStart, validatedEnd)
 
   private def parseTime(s: String): Either[ParseError, LocalTime] =

@@ -1,8 +1,9 @@
 package io.github.ntdesmond.serdobot
-package service.schedule
+package scalapy.modules.camelot
+
+import me.shadaj.scalapy.py
 
 import scala.language.adhocExtensions
-import me.shadaj.scalapy.py
 
 @py.native
 class PdfCell extends py.Object:
