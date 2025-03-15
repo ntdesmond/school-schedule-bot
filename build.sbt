@@ -37,10 +37,17 @@ fork := true
 
 import ai.kien.python.Python
 
+import java.nio.file.Files
+import java.nio.file.Paths
+
 lazy val python = Python(
-  System.getProperty("os.name").toLowerCase() match {
-    case os if os.startsWith("win") => "./venv/Scripts/python"
-    case _                          => "./venv/bin/python"
+  (
+    Files.isDirectory(Paths.get(".sbt")),
+    System.getProperty("os.name").toLowerCase(),
+  ) match {
+    case (false, _)                         => "python"
+    case (true, os) if os.startsWith("win") => "./venv/Scripts/python"
+    case (true, _)                          => "./venv/bin/python"
   },
 )
 
