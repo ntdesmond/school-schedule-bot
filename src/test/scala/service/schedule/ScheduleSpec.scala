@@ -6,6 +6,7 @@ import zio.Scope
 import zio.ZIO
 import zio.ZLayer
 import zio.test.*
+import java.nio.file.Paths
 
 object ScheduleSpec extends SerdobotSpec:
   override val bootstrap: ZLayer[Any, Any, TestEnvironment] =
@@ -23,10 +24,9 @@ object ScheduleSpec extends SerdobotSpec:
       test(s"Parse $filename") {
         for
           date <- zio.Clock.instant.map(java.util.Date.from)
-          path <- zio
-            .ZIO
+          path <- ZIO
             .fromNullable(PdfScheduleParser.getClass.getResource(s"/$filename"))
-            .mapBoth(_ => "File not found", _.getPath.stripPrefix("/"))
+            .mapBoth(_ => "File not found", url => Paths.get(url.toURI).toString)
           schedule <- PdfScheduleParser.parseFile(date, path)
         yield assertCompletes
       }
