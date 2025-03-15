@@ -21,7 +21,7 @@ jobs:
         cache: 'sbt'
     - uses: actions/setup-python@v5.4.0
       with:
-        python-version: 3.10
+        python-version: "3.10"
     - name: Install python dependencies
       run: |
         python -m venv venv
