@@ -37,7 +37,12 @@ fork := true
 
 import ai.kien.python.Python
 
-lazy val python = Python("./venv/Scripts/python")
+lazy val python = Python(
+  System.getProperty("os.name").toLowerCase() match {
+    case os if os.startsWith("win") => "./venv/Scripts/python"
+    case _                          => "./venv/bin/python"
+  },
+)
 
 lazy val javaOpts = python
   .scalapyProperties

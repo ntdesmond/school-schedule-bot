@@ -16,50 +16,45 @@ object CamelotModule extends py.StaticModule("camelot"):
     * @param password
     *   Password for decryption.
     * @param flavor
-    *   The parsing method to use (Only "lattice" is supported in this
-    *   overload).
+    *   The parsing method to use (Only "lattice" is supported in this overload).
     * @param suppress_stdout
     *   Whether to print all logs and warnings.
     * @param parallel
     *   Whether to process pages in parallel using all available cpu cores.
     * @param table_areas
-    *   List of table area strings of the form x1,y1,x2,y2 where (x1, y1) ->
-    *   left-top and (x2, y2) -> right-bottom in PDF coordinate space.
+    *   List of table area strings of the form x1,y1,x2,y2 where (x1, y1) -> left-top and (x2, y2)
+    *   -> right-bottom in PDF coordinate space.
     * @param split_text
     *   Split text that spans across multiple cells.
     * @param flag_size
-    *   Flag text based on font size. Useful to detect super/subscripts. Adds
-    *   <s></s> around flagged text.
+    *   Flag text based on font size. Useful to detect super/subscripts. Adds <s></s> around flagged
+    *   text.
     * @param strip_text
-    *   Characters that should be stripped from a string before assigning it to
-    *   a cell.
+    *   Characters that should be stripped from a string before assigning it to a cell.
     * @param process_background
     *   Process background lines.
     * @param line_scale
-    *   Line size scaling factor. The larger the value the smaller the detected
-    *   lines. Making it very large will lead to text being detected as lines.
+    *   Line size scaling factor. The larger the value the smaller the detected lines. Making it
+    *   very large will lead to text being detected as lines.
     * @param copy_text
-    *   {‘h’, ‘v’} Direction in which text in a spanning cell will be copied
-    *   over.
+    *   {‘h’, ‘v’} Direction in which text in a spanning cell will be copied over.
     * @param shift_text
-    *   {‘l’, ‘r’, ‘t’, ‘b’} Direction in which text in a spanning cell will
-    *   flow.
+    *   {‘l’, ‘r’, ‘t’, ‘b’} Direction in which text in a spanning cell will flow.
     * @param line_tol
     *   Tolerance parameter used to merge close vertical and horizontal lines.
     * @param joint_tol
-    *   Tolerance parameter used to decide whether the detected lines and points
-    *   lie close to each other.
+    *   Tolerance parameter used to decide whether the detected lines and points lie close to each
+    *   other.
     * @param threshold_blocksize
-    *   (OpenCV) Size of a pixel neighborhood that is used to calculate a
-    *   threshold value for the pixel: 3, 5, 7, and so on.
+    *   (OpenCV) Size of a pixel neighborhood that is used to calculate a threshold value for the
+    *   pixel: 3, 5, 7, and so on.
     * @param threshold_constant
-    *   (OpenCV) Constant subtracted from the mean or weighted mean. Normally,
-    *   it is positive but may be zero or negative as well.
+    *   (OpenCV) Constant subtracted from the mean or weighted mean. Normally, it is positive but
+    *   may be zero or negative as well.
     * @param iterations
     *   (OpenCV) Number of times for erosion/dilation is applied.
     * @param backend
-    *   The backend to use for converting the PDF to an image so it can be
-    *   processed by OpenCV.
+    *   The backend to use for converting the PDF to an image so it can be processed by OpenCV.
     * @param use_fallback
     *   Fallback to another backend if unavailable, by default True
     * @param resolution
