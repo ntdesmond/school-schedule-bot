@@ -59,4 +59,4 @@ coursier
 index.scip
 
 # Python venv
-venv
+venv*

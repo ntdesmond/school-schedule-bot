@@ -1,0 +1,57 @@
+name: sbt test
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    # SBT setup
+    - uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+
+    - uses: sbt/setup-sbt@v1
+
+    - name: Set up SBT cache
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.ivy2/cache
+          ~/.sbt
+        key: ${{ runner.os }}-sbt-${{ hashFiles('build.sbt') }}
+        restore-keys: ${{ runner.os }}-sbt-
+
+    # Python setup
+    - uses: actions/setup-python@v5.4.0
+      with:
+        python-version: "3.10"
+
+    - name: Get pip cache dir
+      id: pip-cache-dir
+      shell: bash
+      run: |
+        echo "dir=$(pip cache dir)" >> $GITHUB_OUTPUT
+
+    - name: Set up pip cache
+      uses: actions/cache@v4
+      with:
+        path: ${{ steps.pip-cache-dir.outputs.dir }}
+        key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+        restore-keys: ${{ runner.os }}-pip-
+
+    - name: Install python dependencies
+      run: pip install -r requirements.txt
+
+    # Main script
+    - run: sbt test
