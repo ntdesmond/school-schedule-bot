@@ -30,6 +30,7 @@ jobs:
           ~/.ivy2/cache
           ~/.sbt
         key: ${{ runner.os }}-sbt-${{ hashFiles('build.sbt') }}
+        restore-keys: ${{ runner.os }}-sbt-
 
     # Python setup
     - uses: actions/setup-python@v5.4.0
@@ -47,8 +48,7 @@ jobs:
       with:
         path: ${{ steps.pip-cache-dir.outputs.dir }}
         key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
-        restore-keys: |
-          ${{ runner.os }}-pip-
+        restore-keys: ${{ runner.os }}-pip-
 
     - name: Install python dependencies
       run: pip install -r requirements.txt
