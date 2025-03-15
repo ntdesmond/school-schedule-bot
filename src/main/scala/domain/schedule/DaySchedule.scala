@@ -7,9 +7,16 @@ import java.util.Date
 case class DaySchedule(
   date: Date,
   header: String,
-  classSchedules: List[ClassSchedule],
-  timeSlots: List[TimeSlot],
-)
+  timeSlots: Set[TimeSlot],
+  lessons: Set[Lesson],
+):
+  def classNames: Set[ClassName] = lessons.flatMap(_.classNames)
 
-object DaySchedule:
-  def fromJson(json: String): Either[ParseError, DaySchedule] = ???
+  def getClassSchedule(className: ClassName): ClassSchedule =
+    ClassSchedule(
+      className = className,
+      lessons = lessons.filter(_.classNames.contains(className)).toList.sortBy(_.timeSlot.start),
+    )
+
+  def getAllClassSchedules: Set[ClassSchedule] =
+    classNames.map(getClassSchedule)

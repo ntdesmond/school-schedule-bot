@@ -8,3 +8,5 @@ sealed trait DomainError extends NoStackTrace:
   override def getMessage: String = message
 
 case class ParseError(message: String) extends DomainError
+
+case class Business(message: String) extends DomainError
