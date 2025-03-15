@@ -23,6 +23,14 @@ jobs:
 
     - uses: sbt/setup-sbt@v1
 
+    - name: Set up SBT cache
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.ivy2/cache
+          ~/.sbt
+        key: ${{ runner.os }}-sbt-${{ hashFiles('build.sbt') }}
+
     # Python setup
     - uses: actions/setup-python@v5.4.0
       with:
