@@ -3,8 +3,8 @@ package dao.legacy
 
 import domain.ClassName
 import domain.ClassNameId
-import io.github.ntdesmond.serdobot.domain.schedule.TimeSlotId
-import java.util.Date
+import domain.schedule.TimeSlotId
+import java.time.LocalDate
 import scala.io.Codec
 import scala.io.Source
 import zio.Scope
@@ -183,7 +183,7 @@ object DayScheduleSpec extends SerdobotSpec:
     "17:40 - 18:20",
   )
 
-  private def domainLessonNames(date: Date) = ZIO.foreach(
+  private def domainLessonNames(date: LocalDate) = ZIO.foreach(
     Map(
       "11а" -> List(
         "ин/п 56 хим/п",
@@ -257,7 +257,7 @@ object DayScheduleSpec extends SerdobotSpec:
         scheduleFile   <- ZIO.attempt(Source.fromResource("09.01.json")(Codec("utf-8")).mkString)
         schedule       <- ZIO.fromEither(scheduleFile.fromJson[DaySchedule])
         domainSchedule <- schedule.toDomain
-        date           <- zio.Clock.instant.map(Date.from)
+        date           <- zio.Clock.localDateTime.map(_.toLocalDate)
         timeSlots <- ZIO.foreach(timeStrings) { s =>
           TimeSlotId.makeRandom().map(domain.schedule.TimeSlot.fromString(_, date, s)).absolve
         }

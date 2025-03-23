@@ -5,10 +5,10 @@ import domain.schedule.LessonId
 import io.getquill.JsonbValue
 import io.scalaland.chimney.Transformer
 import io.scalaland.chimney.dsl.*
+import java.time.LocalDate
 import java.time.LocalTime
-import java.util.Date
 
-case class DaySchedule(date: Date, header: String):
+case class DaySchedule(date: LocalDate, header: String):
   def toDomain(
     timeslots: Iterable[domain.schedule.TimeSlot],
     domainLessons: Iterable[domain.schedule.Lesson],

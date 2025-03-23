@@ -2,13 +2,13 @@ package io.github.ntdesmond.serdobot
 package domain
 
 import dao.postgres.PostgresSubtype
-import java.util.Date
+import java.time.LocalDate
 import java.util.UUID
 import zio.prelude.Subtype
 
 case class ClassName(
   id: ClassNameId,
-  date: Date,
+  date: LocalDate,
   number: Int,
   letter: String,
   additionalData: Option[String],
@@ -17,7 +17,7 @@ case class ClassName(
     s"$number$letter" + additionalData.fold("")(value => s" $value")
 
 object ClassName:
-  def fromString(id: ClassNameId, date: Date, s: String): Either[ParseError, ClassName] =
+  def fromString(id: ClassNameId, date: LocalDate, s: String): Either[ParseError, ClassName] =
     val pattern = """(?i)(\d{1,2})\s*(\p{L}\b)\s*(.*)""".r
     for
       (number, letter, additionalData) <-

@@ -1,13 +1,13 @@
 package io.github.ntdesmond.serdobot
 package dao.legacy
 
+import domain.ClassNameId
 import domain.schedule.Lesson
 import domain.schedule.LessonId
 import domain.schedule.LessonName
 import domain.schedule.TimeSlot
 import domain.schedule.TimeSlotId
-import io.github.ntdesmond.serdobot.domain.ClassNameId
-import java.util.Date
+import java.time.LocalDate
 import scala.collection.immutable.ListMap
 import zio.IO
 import zio.ZIO
@@ -16,7 +16,7 @@ import zio.json.ast.Json
 import zio.json.ast.JsonCursor
 
 case class DaySchedule(
-  date: Option[Date],
+  date: Option[LocalDate],
   dayInfo: String,
   timeslots: List[String],
   columns: List[(String, List[String])],
@@ -25,7 +25,7 @@ case class DaySchedule(
     val timeColumnName = "Звонки"
 
     for
-      today <- zio.Clock.instant.map(Date.from)
+      today <- zio.Clock.localDateTime.map(_.toLocalDate)
       date = this.date.getOrElse(today)
       timeSlots <- ZIO.foreach(timeslots) { slot =>
         TimeSlotId.makeRandom().map(TimeSlot.fromString(_, date, slot)).absolve
@@ -40,7 +40,7 @@ case class DaySchedule(
     yield domain.schedule.DaySchedule(date, dayInfo, timeSlots.toSet, lessons.values.toSet)
 
   private def columnToDomain(
-    date: Date,
+    date: LocalDate,
     lastColumn: List[Option[Lesson]],
     className: String,
     lessons: List[String],

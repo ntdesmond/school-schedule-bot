@@ -7,16 +7,17 @@ import domain.schedule.Lesson
 import domain.schedule.LessonId
 import io.getquill.*
 import io.scalaland.chimney.dsl.*
-import java.util.Date
+import java.time.LocalDate
 import javax.sql.DataSource
 import zio.Task
 import zio.ZEnvironment
 import zio.ZIO
+import zio.ZLayer
 
 class DayScheduleDAOImpl(dataSource: DataSource) extends DayScheduleDAO:
   import PostgresContext.*
 
-  override def get(date: Date): Task[Option[DaySchedule]] = {
+  override def get(date: LocalDate): Task[Option[DaySchedule]] = {
     for
       maybeSchedule <- run(Schema.daySchedule.filter(_.date == lift(date)).take(1))
         .map(_.headOption)
@@ -55,7 +56,7 @@ class DayScheduleDAOImpl(dataSource: DataSource) extends DayScheduleDAO:
       .map { case (schedule, (timeslots, lessons)) => schedule.toDomain(timeslots, lessons.values) }
   }.provideEnvironment(ZEnvironment(dataSource))
 
-  override def save(date: Date, schedule: DaySchedule): Task[Unit] =
+  override def save(schedule: DaySchedule): Task[Unit] =
     transaction {
       val dbSchedule = schedule.transformInto[model.DaySchedule]
 
@@ -112,3 +113,7 @@ class DayScheduleDAOImpl(dataSource: DataSource) extends DayScheduleDAO:
           .onConflictUpdate(_.date)((t, e) => t.header -> e.header))
       yield ()
     }.provideEnvironment(ZEnvironment(dataSource))
+
+object DayScheduleDAOImpl:
+  // noinspection TypeAnnotation
+  def layer = ZLayer.derive[DayScheduleDAOImpl]

@@ -6,7 +6,7 @@ import domain.ClassNameId
 import domain.DomainError
 import domain.ParseError
 import domain.schedule.*
-import java.util.Date
+import java.time.LocalDate
 import scalapy.ScalaPyExtensions
 import scalapy.modules.camelot.CamelotModule
 import scalapy.modules.camelot.PdfCell
@@ -19,7 +19,7 @@ object PdfScheduleParser:
     cells.map(_.text).mkString
 
   private def parseClassNamesRow(
-    date: Date,
+    date: LocalDate,
     cells: List[PdfCell],
   ): IO[ParseError, List[ClassName]] =
     cells match
@@ -31,7 +31,7 @@ object PdfScheduleParser:
       case Nil => ZIO.fail(ParseError("No class names found"))
 
   private def parseLessonsRow(
-    date: Date,
+    date: LocalDate,
     maybePreviousRow: Option[List[Option[Lesson]]],
     classes: List[ClassName],
     pdfCells: List[PdfCell],
@@ -81,7 +81,7 @@ object PdfScheduleParser:
         yield (timeSlot, parsedLessons)
       case Nil => ZIO.fail(ParseError("No lessons in a row"))
 
-  private def parseTable(date: Date, table: List[List[PdfCell]]): IO[
+  private def parseTable(date: LocalDate, table: List[List[PdfCell]]): IO[
     DomainError,
     (Option[String], Set[TimeSlot], Map[LessonId, Lesson]),
   ] =
@@ -121,7 +121,8 @@ object PdfScheduleParser:
         yield (headerOrClassNames.left.toOption, timeslots, lessons)
       case _ => ZIO.fail(ParseError("Table is empty"))
 
-  private def parseTables(date: Date): List[List[List[PdfCell]]] => IO[DomainError, DaySchedule] = {
+  private def parseTables(date: LocalDate)
+    : List[List[List[PdfCell]]] => IO[DomainError, DaySchedule] = {
     case firstTable :: rest =>
       for
         (maybeHeader, timeslots, lessons) <- parseTable(date, firstTable)
@@ -139,7 +140,7 @@ object PdfScheduleParser:
     case _ => ZIO.fail(ParseError("No tables found in the file"))
   }
 
-  def parseFile(date: Date, path: String): Task[DaySchedule] =
+  def parseFile(date: LocalDate, path: String): Task[DaySchedule] =
     for
       (cells, stderr) <- ScalaPyExtensions.attemptWithStderr {
         CamelotModule

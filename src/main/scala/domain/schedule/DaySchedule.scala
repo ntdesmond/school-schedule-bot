@@ -2,10 +2,10 @@ package io.github.ntdesmond.serdobot
 package domain
 package schedule
 
-import java.util.Date
+import java.time.LocalDate
 
 case class DaySchedule(
-  date: Date,
+  date: LocalDate,
   header: String,
   timeSlots: Set[TimeSlot],
   lessons: Set[Lesson],
