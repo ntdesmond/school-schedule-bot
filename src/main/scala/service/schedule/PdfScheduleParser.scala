@@ -51,7 +51,7 @@ object PdfScheduleParser:
                       LessonName
                         .fromString(lessonCell.text)
                         .map { name =>
-                          Lesson(id, name, timeSlot, Set(className))
+                          Lesson(id, name, Set(timeSlot.id), Set(className.id))
                         }
                     }
                 case (false, _) =>
@@ -59,14 +59,13 @@ object PdfScheduleParser:
                     .getOrFailWith(
                       ParseError(s"No lesson found to the left of $className"),
                     )(currentRowLessons.headOption)
-                    .map(_.map(_.appendClassName(className)))
+                    .map(_.map(_.appendClassNameId(className.id)))
                 case (true, false) =>
                   ZIO
                     .getOrFailWith(
                       ParseError("No lesson found above the current"),
                     )(lessonFromTop)
-                    .map(_.extendTimeSlot(timeSlot))
-                    .absolve
+                    .map(_.appendTimeSlot(timeSlot.id))
                     .asSome
             }.map(_ :: currentRowLessons)
         }
@@ -83,26 +82,30 @@ object PdfScheduleParser:
 
   private def parseTable(date: LocalDate, table: List[List[PdfCell]]): IO[
     DomainError,
-    (Option[String], Set[TimeSlot], Map[LessonId, Lesson]),
+    (Option[String], Set[TimeSlot], Map[LessonId, Lesson], Set[ClassName]),
   ] =
     table match
       case head :: rest =>
         for
           headerOrClassNames <-
             parseClassNamesRow(date, head).asRight.orElseSucceed(Left(parseTextOnlyRow(head)))
-          (_, _, timeslots, lessons) <-
+          (_, _, timeslots, lessons, classNames) <-
             ZIO.foldLeft(rest)(
               (
                 headerOrClassNames.toOption,
                 Option.empty[List[Option[Lesson]]],
                 Set.empty[TimeSlot],
                 Map.empty[LessonId, Lesson],
+                Set.empty[ClassName],
               ),
             ) {
-              case ((maybeClassNames, previousRowLessons, timeslots, lessons), row) =>
+              case (
+                    (maybeClassNames, previousRowLessons, timeslots, lessons, allClassNames),
+                    row,
+                  ) =>
                 maybeClassNames match
                   case None => parseClassNamesRow(date, row).map { classNames =>
-                      (Some(classNames), None, timeslots, lessons)
+                      (Some(classNames), None, timeslots, lessons, allClassNames ++ classNames)
                     }
                   case Some(classNames) =>
                     parseLessonsRow(date, previousRowLessons, classNames, row)
@@ -111,32 +114,40 @@ object PdfScheduleParser:
                           maybeClassNames,
                           Some(rowLessons),
                           timeslots + timeSlot,
-                          lessons ++ rowLessons.collect { case Some(lesson) => lesson.id -> lesson },
+                          lessons ++ rowLessons.collect { case Some(lesson) =>
+                            lesson.id -> lesson
+                          },
+                          allClassNames,
                         )
                       }
                       .catchSome {
-                        case _: ParseError => ZIO.succeed((None, None, timeslots, lessons))
+                        case _: ParseError =>
+                          ZIO.succeed((None, None, timeslots, lessons, allClassNames))
                       }
             }
-        yield (headerOrClassNames.left.toOption, timeslots, lessons)
+        yield (headerOrClassNames.left.toOption, timeslots, lessons, classNames)
       case _ => ZIO.fail(ParseError("Table is empty"))
 
   private def parseTables(date: LocalDate)
     : List[List[List[PdfCell]]] => IO[DomainError, DaySchedule] = {
     case firstTable :: rest =>
       for
-        (maybeHeader, timeslots, lessons) <- parseTable(date, firstTable)
-        (timeslots, lessons) <-
-          ZIO.foldLeft(rest)((timeslots, lessons)) {
-            case ((accTimeslots, accLessons), table) =>
-              parseTable(date, table).map { case (_, newTimeslots, newLessons) =>
-                (accTimeslots ++ newTimeslots, accLessons ++ newLessons)
+        (maybeHeader, timeslots, lessons, classNames) <- parseTable(date, firstTable)
+        (timeslots, lessons, classNames) <-
+          ZIO.foldLeft(rest)((timeslots, lessons, classNames)) {
+            case ((accTimeslots, accLessons, accClassNames), table) =>
+              parseTable(date, table).map { case (_, newTimeslots, newLessons, newClassNames) =>
+                (
+                  accTimeslots ++ newTimeslots,
+                  accLessons ++ newLessons,
+                  accClassNames ++ newClassNames,
+                )
               }
           }
         dayInfo <- ZIO.getOrFailWith(
           ParseError("Table header is empty"),
         )(maybeHeader)
-      yield DaySchedule(date, dayInfo, timeslots, lessons.values.toSet)
+      yield DaySchedule.make(date, dayInfo, timeslots, classNames, lessons.values)
     case _ => ZIO.fail(ParseError("No tables found in the file"))
   }
 

@@ -3,6 +3,7 @@ package dao.postgres.model
 
 import domain.ClassNameId
 import domain.schedule.LessonId
+import domain.schedule.TimeSlotId
 import java.util.Date
 
-case class ClassLesson(classNameId: ClassNameId, lessonId: LessonId)
+case class ClassTimeLesson(classNameId: ClassNameId, timeslotId: TimeSlotId, lessonId: LessonId)

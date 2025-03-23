@@ -8,28 +8,48 @@ case class DaySchedule(
   date: LocalDate,
   header: String,
   timeSlots: Set[TimeSlot],
-  lessons: Set[Lesson],
+  classNames: Set[ClassName],
+  lessons: Map[(TimeSlotId, ClassNameId), Lesson],
 ):
-  def classNames: Set[ClassName] = lessons.flatMap(_.classNames)
+  private lazy val timeslotMap = timeSlots.map(timeSlot => timeSlot.id -> timeSlot).toMap
 
   def getClassSchedule(number: Int, letter: Option[String]): Option[ClassSchedule] =
-    def filter(className: ClassName) = className.number == number && letter
-      .forall(_ == className.letter)
-
     classNames
-      .find(filter)
-      .map { className =>
-        ClassSchedule(
-          className = className,
-          lessons = lessons.filter(_.classNames.exists(filter)).toList.sortBy(_.timeSlot.start),
-        )
+      .find { className =>
+        className.number == number && letter.forall(_ == className.letter)
       }
+      .map(getClassSchedule)
 
   def getClassSchedule(className: ClassName): ClassSchedule =
     ClassSchedule(
       className = className,
-      lessons = lessons.filter(_.classNames.contains(className)).toList.sortBy(_.timeSlot.start),
+      lessons = lessons
+        .toList
+        .sortBy { case ((tid, _), _) => timeslotMap.get(tid).map(_.start) }
+        .withFilter { case ((_, cid), _) => cid == className.id }
+        .map { case ((tid, cid), lesson) => (timeslotMap(tid), lesson) },
     )
 
   def getAllClassSchedules: Set[ClassSchedule] =
     classNames.map(getClassSchedule)
+
+object DaySchedule:
+  def make(
+    date: LocalDate,
+    header: String,
+    timeslots: Iterable[TimeSlot],
+    classnames: Iterable[ClassName],
+    lessons: Iterable[Lesson],
+  ): DaySchedule =
+    DaySchedule(
+      date,
+      header,
+      timeslots.toSet,
+      classnames.toSet, {
+        for
+          lesson <- lessons
+          cid    <- lesson.classNames
+          tid    <- lesson.timeSlots
+        yield (tid, cid) -> lesson
+      }.toMap,
+    )

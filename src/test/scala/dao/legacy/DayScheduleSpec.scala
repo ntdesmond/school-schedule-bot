@@ -275,7 +275,7 @@ object DayScheduleSpec extends SerdobotSpec:
               .getClassSchedule(classname.number, Some(classname.letter))
               .toList
               .flatMap(_.lessons)
-              .map(_.name) == lessonNames,
+              .map(_._2.name) == lessonNames,
           )
         },
       )

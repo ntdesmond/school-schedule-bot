@@ -1,6 +1,7 @@
 package io.github.ntdesmond.serdobot
 package dao.legacy
 
+import domain.ClassName
 import domain.ClassNameId
 import domain.schedule.Lesson
 import domain.schedule.LessonId
@@ -30,14 +31,25 @@ case class DaySchedule(
       timeSlots <- ZIO.foreach(timeslots) { slot =>
         TimeSlotId.makeRandom().map(TimeSlot.fromString(_, date, slot)).absolve
       }
-      (lessons, _) <- ZIO
-        .foldLeft(columns)((Map.empty[LessonId, Lesson], List.empty[Option[Lesson]])) {
-          case ((acc, lastColumn), (classname, lessons)) =>
-            columnToDomain(date, lastColumn, classname, lessons, timeSlots).map(column =>
-              (acc ++ column.collect { case Some(lesson) => lesson.id -> lesson }, column),
-            )
-        }
-    yield domain.schedule.DaySchedule(date, dayInfo, timeSlots.toSet, lessons.values.toSet)
+      (lessons, _, classnames) <- ZIO.foldLeft(columns)((
+        Map.empty[LessonId, Lesson],
+        List.empty[Option[Lesson]],
+        Set.empty[ClassName],
+      )) {
+        case ((acc, lastColumn, classnames), (classnameString, lessons)) =>
+          columnToDomain(date, lastColumn, classnameString, lessons, timeSlots).map {
+            case (classname, column) =>
+              (
+                acc ++ column.collect { case Some(lesson) => lesson.id -> lesson },
+                column,
+                classnames + classname,
+              )
+          }
+      }
+    yield domain
+      .schedule
+      .DaySchedule
+      .make(date, dayInfo, timeSlots.toSet, classnames, lessons.values)
 
   private def columnToDomain(
     date: LocalDate,
@@ -45,7 +57,7 @@ case class DaySchedule(
     className: String,
     lessons: List[String],
     timeslots: List[TimeSlot],
-  ): IO[domain.DomainError, List[Option[Lesson]]] =
+  ): IO[domain.DomainError, (ClassName, List[Option[Lesson]])] =
     for
       className <- ClassNameId
         .makeRandom()
@@ -53,13 +65,13 @@ case class DaySchedule(
         .absolve
       lessons <- ZIO.foreach(lessons.zipAll(lastColumn, "", None).zip(timeslots)) {
         case (("<<<", lessonFromLeft), _) =>
-          ZIO.succeed(lessonFromLeft.map(_.appendClassName(className)))
+          ZIO.succeed(lessonFromLeft.map(_.appendClassNameId(className.id)))
         case ((lessonName, _), timeslot) =>
           (LessonId.makeRandom() <*> ZIO.succeed(LessonName.fromString(lessonName))).map {
-            case (id, name) => name.map(Lesson(id, _, timeslot, Set(className)))
+            case (id, name) => name.map(Lesson(id, _, Set(timeslot.id), Set(className.id)))
           }
       }
-    yield lessons
+    yield (className, lessons)
 
 object DaySchedule:
   private val dayInfoCursor =

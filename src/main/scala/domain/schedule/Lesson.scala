@@ -13,28 +13,14 @@ import zio.prelude.Subtype
 case class Lesson(
   id: LessonId,
   name: LessonName,
-  timeSlot: TimeSlot,
-  classNames: Set[ClassName],
+  timeSlots: Set[TimeSlotId],
+  classNames: Set[ClassNameId],
 ):
-  def appendClassName(className: ClassName): Lesson =
-    copy(classNames = classNames + className)
+  def appendClassNameId(classNameId: ClassNameId): Lesson =
+    copy(classNames = classNames + classNameId)
 
-  def extendTimeSlot(otherTimeSlot: TimeSlot): Either[DomainError, Lesson] =
-    val newSlot =
-      if (
-        otherTimeSlot.start.isBefore(timeSlot.start) &&
-        !timeSlot.start.isBefore(otherTimeSlot.end)
-      )
-        Right(timeSlot.copy(start = otherTimeSlot.start))
-      else if (
-        !timeSlot.end.isAfter(otherTimeSlot.start) &&
-        otherTimeSlot.end.isAfter(timeSlot.end)
-      )
-        Right(timeSlot.copy(end = otherTimeSlot.end))
-      else
-        Left(Business("Overlapping timeslots"))
-
-    newSlot.map(ts => copy(timeSlot = ts))
+  def appendTimeSlot(otherTimeSlotId: TimeSlotId): Lesson =
+    copy(timeSlots = timeSlots + otherTimeSlotId)
 
 object LessonId extends Subtype[UUID] with PostgresSubtype[UUID] with MakeRandomUUID
 type LessonId = LessonId.Type

@@ -9,22 +9,13 @@ import io.scalaland.chimney.Transformer
 import io.scalaland.chimney.dsl.*
 import java.util.Date
 
-case class Lesson(id: LessonId, name: String, timeSlotId: TimeSlotId):
+case class Lesson(id: LessonId, name: LessonName):
   def toDomain(
-    timeSlot: domain.schedule.TimeSlot,
-    classNames: List[domain.ClassName],
+    timeSlots: List[domain.schedule.TimeSlotId],
+    classNames: List[domain.ClassNameId],
   ): domain.schedule.Lesson =
     this
       .into[domain.schedule.Lesson]
-      .withFieldComputed(_.name, l => LessonName(l.name))
-      .withFieldConst(_.timeSlot, timeSlot)
+      .withFieldConst(_.timeSlots, timeSlots.toSet)
       .withFieldConst(_.classNames, classNames.toSet)
-      .transform
-
-object Lesson:
-  def fromDomain(lesson: domain.schedule.Lesson): Lesson =
-    lesson
-      .into[Lesson]
-      .withFieldComputed(_.name, l => LessonName.unwrap(l.name))
-      .withFieldConst(_.timeSlotId, lesson.timeSlot.id)
       .transform

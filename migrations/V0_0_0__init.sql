@@ -14,9 +14,8 @@ create table timeslot
 
 create table lesson
 (
-    id           uuid primary key,
-    name         text not null,
-    time_slot_id uuid not null references timeslot (id)
+    id   uuid primary key,
+    name text not null
 );
 
 
@@ -29,9 +28,11 @@ create table classname
     additional_data text
 );
 
-create table class_lesson
+create table class_time_lesson
 (
     class_name_id uuid not null references classname (id),
+    timeslot_id   uuid not null references timeslot (id),
     lesson_id     uuid not null references lesson (id),
-    primary key (class_name_id, lesson_id)
+    primary key (class_name_id, timeslot_id, lesson_id)
 );
+

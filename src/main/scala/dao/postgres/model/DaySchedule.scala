@@ -11,10 +11,16 @@ import java.time.LocalTime
 case class DaySchedule(date: LocalDate, header: String):
   def toDomain(
     timeslots: Iterable[domain.schedule.TimeSlot],
+    classnames: Iterable[domain.ClassName],
     domainLessons: Iterable[domain.schedule.Lesson],
   ): domain.schedule.DaySchedule =
-    this
-      .into[domain.schedule.DaySchedule]
-      .withFieldConst(_.timeSlots, timeslots.toSet)
-      .withFieldConst(_.lessons, domainLessons.toSet)
-      .transform
+    domain
+      .schedule
+      .DaySchedule
+      .make(
+        date,
+        header,
+        timeslots,
+        classnames,
+        domainLessons,
+      )
