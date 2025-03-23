@@ -2,13 +2,15 @@ package io.github.ntdesmond.serdobot
 package dao.legacy
 
 import domain.ClassName
+import domain.ClassNameId
+import domain.schedule.TimeSlotId
+import java.time.LocalDate
+import scala.io.Codec
+import scala.io.Source
 import zio.Scope
 import zio.ZIO
 import zio.json.DecoderOps
 import zio.test.*
-
-import scala.io.Codec
-import scala.io.Source
 
 object DayScheduleSpec extends SerdobotSpec:
   private val dayInfo = "Четверг 9 января"
@@ -181,73 +183,73 @@ object DayScheduleSpec extends SerdobotSpec:
     "17:40 - 18:20",
   )
 
-  private val domainLessonNames = Map(
-    "11а" -> List(
-      "ин/п 56 хим/п",
-      "ОБиЗР 01",
-      "геом/п/33 алг/б/43",
-      "общ/п 32",
-      "геом/п 33 хим/э 46",
-      "мат/п 33 био/п ин/б 53",
-      "общ/п 32 био/э",
-      "био 45",
+  private def domainLessonNames(date: LocalDate) = ZIO.foreach(
+    Map(
+      "11а" -> List(
+        "ин/п 56 хим/п",
+        "ОБиЗР 01",
+        "геом/п/33 алг/б/43",
+        "общ/п 32",
+        "геом/п 33 хим/э 46",
+        "мат/п 33 био/п ин/б 53",
+        "общ/п 32 био/э",
+        "био 45",
+      ),
+      "11б" -> List(
+        "46ин/п 56 хим/п 46",
+        "рус 21",
+        "геом/п/33 алг/б/43",
+        "общ/п 32 инф2",
+        "геом/п 33 хим/э 46",
+        "мат/п 33 био/п ин/б 53",
+        "общ/п 32 био/э",
+        "ОБиЗР 01",
+      ),
+      "10а" -> List(
+        "Проф 54",
+        "общ/п 32 физ/п 54 инф/п",
+        "общ/п 32 физ/п хим/п 46 инф/п",
+        "рус 34",
+        "ин/п/б 52/53/44/56",
+        "ин/п 52 физ/п 54",
+        "геом п/33 ВС/б2/35",
+        "ист 24",
+        "ФК",
+      ),
+      "10б" -> List(
+        "Проф 53",
+        "общ/п 32 физ/п 54 инф/п",
+        "общ/п 32 физ/п хим/п 46 инф/п",
+        "ОБиЗР 01",
+        "ин/п/б 52/53/44/56",
+        "ин/п 52 физ/п 54",
+        "геом п/33 ВС/б2/35",
+        "инф2 54",
+        "физ 54",
+      ),
+      "9б" -> List(
+        "ист 24", // first lesson omitted
+        "ОБиЗР 01",
+        "рус 21",
+        "геом 31",
+        "хим 46",
+        "гео 22",
+        "ин 41/25",
+      ),
+      "8а" -> List(
+        "Проф 43",
+        "хим 46",
+        "муз 24",
+        "лит 41",
+        "геом 43",
+        "алг 43",
+        "ин 41/56",
+        "ФК", // empty lessons omitted
+      ),
     ),
-    "11б" -> List(
-      "46ин/п 56 хим/п 46",
-      "рус 21",
-      "геом/п/33 алг/б/43",
-      "общ/п 32 инф2",
-      "геом/п 33 хим/э 46",
-      "мат/п 33 био/п ин/б 53",
-      "общ/п 32 био/э",
-      "ОБиЗР 01",
-    ),
-    "10а" -> List(
-      "Проф 54",
-      "общ/п 32 физ/п 54 инф/п",
-      "общ/п 32 физ/п хим/п 46 инф/п",
-      "рус 34",
-      "ин/п/б 52/53/44/56",
-      "ин/п 52 физ/п 54",
-      "геом п/33 ВС/б2/35",
-      "ист 24",
-      "ФК",
-    ),
-    "10б" -> List(
-      "Проф 53",
-      "общ/п 32 физ/п 54 инф/п",
-      "общ/п 32 физ/п хим/п 46 инф/п",
-      "ОБиЗР 01",
-      "ин/п/б 52/53/44/56",
-      "ин/п 52 физ/п 54",
-      "геом п/33 ВС/б2/35",
-      "инф2 54",
-      "физ 54",
-    ),
-    "9б" -> List(
-      "ист 24", // first lesson omitted
-      "ОБиЗР 01",
-      "рус 21",
-      "геом 31",
-      "хим 46",
-      "гео 22",
-      "ин 41/25",
-    ),
-    "8а" -> List(
-      "Проф 43",
-      "хим 46",
-      "муз 24",
-      "лит 41",
-      "геом 43",
-      "алг 43",
-      "ин 41/56",
-      "ФК", // empty lessons omitted
-    ),
-  ).map { case (className, lessons) => ClassName.fromString(className) -> lessons }
-    .collect {
-      case (Right(className), lessons) => className -> lessons
-      case (Left(err), _)              => throw err
-    }
+  ) { case (className, lessons) =>
+    ClassNameId.makeRandom().map(ClassName.fromString(_, date, className)).absolve.map(_ -> lessons)
+  }
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("DayScheduleSpec")(
     test("json decode and to domain") {
@@ -255,17 +257,26 @@ object DayScheduleSpec extends SerdobotSpec:
         scheduleFile   <- ZIO.attempt(Source.fromResource("09.01.json")(Codec("utf-8")).mkString)
         schedule       <- ZIO.fromEither(scheduleFile.fromJson[DaySchedule])
         domainSchedule <- schedule.toDomain
+        date           <- zio.Clock.localDateTime.map(_.toLocalDate)
         timeSlots <- ZIO.foreach(timeStrings) { s =>
-          ZIO.fromEither(domain.schedule.TimeSlot.fromString(s))
+          TimeSlotId.makeRandom().map(domain.schedule.TimeSlot.fromString(_, date, s)).absolve
         }
+        domainLessonNames <- domainLessonNames(date)
       yield assertTrue(
         schedule.dayInfo == dayInfo,
         schedule.columns == lessons,
         domainSchedule.header == dayInfo,
-        domainSchedule.timeSlots == timeSlots.toSet,
+        domainSchedule.timeSlots.map(t => (t.date, t.start, t.end)) ==
+          timeSlots.toSet.map(t => (t.date, t.start, t.end)),
       ) && TestResult.allSuccesses(
         domainLessonNames.map { case (classname, lessonNames) =>
-          assertTrue(domainSchedule.getClassSchedule(classname).lessons.map(_.name) == lessonNames)
+          assertTrue(
+            domainSchedule
+              .getClassSchedule(classname.number, Some(classname.letter))
+              .toList
+              .flatMap(_.lessons)
+              .map(_.name) == lessonNames,
+          )
         },
       )
     },
