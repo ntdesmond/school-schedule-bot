@@ -2,13 +2,20 @@ package io.github.ntdesmond.serdobot
 package domain
 package schedule
 
-import zio.prelude.Subtype
-import zio.UIO
-import zio.Random
-
+import dao.postgres.PostgresSubtype
+import io.github.ntdesmond
+import io.github.ntdesmond.serdobot
+import java.util.Date
 import java.util.UUID
+import zio.prelude
+import zio.prelude.Subtype
 
-case class Lesson(id: LessonId, name: String, timeSlot: TimeSlot, classNames: Set[ClassName]):
+case class Lesson(
+  id: LessonId,
+  name: LessonName,
+  timeSlot: TimeSlot,
+  classNames: Set[ClassName],
+):
   def appendClassName(className: ClassName): Lesson =
     copy(classNames = classNames + className)
 
@@ -29,20 +36,12 @@ case class Lesson(id: LessonId, name: String, timeSlot: TimeSlot, classNames: Se
 
     newSlot.map(ts => copy(timeSlot = ts))
 
-object Lesson:
-  def apply(name: String, timeSlot: TimeSlot, classNames: Set[ClassName]): UIO[Option[Lesson]] =
-    val cleanName = """\s+""".r.replaceAllIn(name, " ").strip()
-    Random
-      .nextUUID
-      .map { uuid =>
-        Lesson(
-          id = LessonId(uuid),
-          name = cleanName,
-          timeSlot = timeSlot,
-          classNames = classNames,
-        )
-      }
-      .when(cleanName.nonEmpty && cleanName != "-")
-
-object LessonId extends Subtype[UUID]
+object LessonId extends Subtype[UUID] with PostgresSubtype[UUID] with MakeRandomUUID
 type LessonId = LessonId.Type
+
+object LessonName extends Subtype[String] with PostgresSubtype[String]:
+  def fromString(value: String): Option[LessonName] =
+    Option("""\s+""".r.replaceAllIn(value, " ").strip())
+      .filter(name => name.nonEmpty && name != "-")
+      .map(apply)
+type LessonName = LessonName.Type
