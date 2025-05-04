@@ -9,10 +9,12 @@ import domain.schedule.LessonName
 import domain.schedule.TimeSlot
 import domain.schedule.TimeSlotId
 import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 import scala.collection.immutable.ListMap
 import zio.IO
 import zio.ZIO
 import zio.json.JsonDecoder
+import zio.json.JsonEncoder
 import zio.json.ast.Json
 import zio.json.ast.JsonCursor
 
@@ -74,6 +76,55 @@ case class DaySchedule(
     yield (className, lessons)
 
 object DaySchedule:
+  def fromDomain(domainSchedule: domain.schedule.DaySchedule): DaySchedule =
+    val sortedTimeSlots = domainSchedule.timeSlots.toVector.sortBy(_.start)
+    val sortedClassNames = domainSchedule
+      .classNames
+      .toVector
+      .sortBy(cn =>
+        (-cn.number, cn.letter, cn.additionalData.getOrElse("")),
+      )
+
+    val timeFormatter = DateTimeFormatter.ofPattern("H:mm")
+    val timeSlotStrings = sortedTimeSlots.map { ts =>
+      s"${ts.start.format(timeFormatter)} - ${ts.end.format(timeFormatter)}"
+    }
+
+    val (columnsVector, _) = sortedClassNames.foldLeft(
+      (Vector.empty[(String, Vector[String])], Option.empty[ClassName]),
+    ) { case ((accColumns, maybePreviousClassName), currentClassName) =>
+      val lessonStrings = sortedTimeSlots.map { timeSlot =>
+        domainSchedule.lessons.get((timeSlot.id, currentClassName.id)) match
+          case Some(lesson) =>
+            // Check if this lesson also belongs to the previous class at the same timeslot
+            // A lesson belongs to the previous class if it exists for the previous class's ID
+            // at the current timeslot ID, and shares the same LessonId.
+            val belongsToPrevious = maybePreviousClassName.exists { previousClassName =>
+              domainSchedule
+                .lessons
+                .get((timeSlot.id, previousClassName.id))
+                .exists(_.id == lesson.id)
+            }
+
+            if (belongsToPrevious) "<<<" else LessonName.unwrap(lesson.name)
+          case None => "" // Empty string if no lesson for this class/timeslot
+      }
+
+      val trimmedLessonStrings = lessonStrings.reverse.dropWhile(_.isEmpty).reverse
+      val newColumn            = (currentClassName.asFormattedString, trimmedLessonStrings)
+      (accColumns :+ newColumn, Some(currentClassName))
+    }
+
+    // Convert back to List for the case class constructor
+    val columns = columnsVector.map { case (cn, ls) => (cn, ls.toList) }.toList
+
+    DaySchedule(
+      date = Some(domainSchedule.date),
+      dayInfo = domainSchedule.header,
+      timeslots = timeSlotStrings.toList,
+      columns = columns,
+    )
+
   private val dayInfoCursor =
     JsonCursor.field("dayInfo") >>> JsonCursor.isString
 
@@ -87,4 +138,20 @@ object DaySchedule:
       updatedJson <- json.delete(dayInfoCursor).flatMap(_.delete(timesCursor))
       columns     <- updatedJson.as[ListMap[String, List[String]]]
     yield DaySchedule(None, dayInfo.value, timeslots, columns.toList)
+  }
+
+  given JsonEncoder[DaySchedule] = JsonEncoder[Json].contramap { schedule =>
+    val timeslotJson = Json.Arr(schedule.timeslots.map(Json.Str(_))*)
+    val columnJson = schedule
+      .columns
+      .map { case (className, lessons) =>
+        className -> Json.Arr(lessons.map(Json.Str(_))*)
+      }
+
+    val fields = ListMap(
+      "dayInfo" -> Json.Str(schedule.dayInfo),
+      "Звонки"  -> timeslotJson,
+    ) ++ ListMap.from(columnJson)
+
+    Json.Obj(fields.toSeq*)
   }

@@ -4,10 +4,7 @@ package dao.postgres.model
 import domain.schedule.LessonId
 import domain.schedule.LessonName
 import domain.schedule.TimeSlotId
-import io.getquill.JsonbValue
-import io.scalaland.chimney.Transformer
 import io.scalaland.chimney.dsl.*
-import java.util.Date
 
 case class Lesson(id: LessonId, name: LessonName):
   def toDomain(

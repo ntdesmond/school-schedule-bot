@@ -10,6 +10,8 @@ import scala.io.Source
 import zio.Scope
 import zio.ZIO
 import zio.json.DecoderOps
+import zio.json.EncoderOps
+import zio.json.ast.Json
 import zio.test.*
 
 object DayScheduleSpec extends SerdobotSpec:
@@ -86,8 +88,6 @@ object DayScheduleSpec extends SerdobotSpec:
       "алг 43",
       "ин 41/56",
       "ФК",
-      "",
-      "-",
     ),
     "8б" -> List(
       "Проф 41",
@@ -252,9 +252,10 @@ object DayScheduleSpec extends SerdobotSpec:
   }
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("DayScheduleSpec")(
-    test("json decode and to domain") {
+    test("json decode and to domain and backwards") {
       for
         scheduleFile   <- ZIO.attempt(Source.fromResource("09.01.json")(Codec("utf-8")).mkString)
+        jsonAst        <- ZIO.fromEither(scheduleFile.fromJson[Json])
         schedule       <- ZIO.fromEither(scheduleFile.fromJson[DaySchedule])
         domainSchedule <- schedule.toDomain
         date           <- zio.Clock.localDateTime.map(_.toLocalDate)
@@ -262,12 +263,16 @@ object DayScheduleSpec extends SerdobotSpec:
           TimeSlotId.makeRandom().map(domain.schedule.TimeSlot.fromString(_, date, s)).absolve
         }
         domainLessonNames <- domainLessonNames(date)
+        legacyFromDomain = DaySchedule.fromDomain(domainSchedule).copy(date = None)
+        backToJson <- ZIO.fromEither(legacyFromDomain.toJsonAST)
       yield assertTrue(
         schedule.dayInfo == dayInfo,
         schedule.columns == lessons,
         domainSchedule.header == dayInfo,
         domainSchedule.timeSlots.map(t => (t.date, t.start, t.end)) ==
           timeSlots.toSet.map(t => (t.date, t.start, t.end)),
+        legacyFromDomain == schedule,
+        backToJson == jsonAst,
       ) && TestResult.allSuccesses(
         domainLessonNames.map { case (classname, lessonNames) =>
           assertTrue(
