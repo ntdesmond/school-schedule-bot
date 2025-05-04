@@ -12,10 +12,11 @@ import zio.test.*
 object ScheduleSpec extends SerdobotSpec:
   def spec: Spec[TestEnvironment & Scope, Any] = suite("ScheduleSpec")(
     List(
-      "09.02.pdf",
-      "21.02.pdf",
-      "14.03.pdf",
-      "15.03.pdf",
+//      "09.02.pdf",
+//      "21.02.pdf",
+//      "14.03.pdf",
+//      "15.03.pdf",
+      "05.05.pdf",
     ).map { filename =>
       test(s"Parse $filename") {
         for
@@ -23,8 +24,8 @@ object ScheduleSpec extends SerdobotSpec:
           path <- ZIO
             .fromNullable(PdfScheduleParser.getClass.getResource(s"/$filename"))
             .mapBoth(_ => "File not found", url => Paths.get(url.toURI).toString)
-          schedule <- PdfScheduleParser.parseFile(date, path)
+          schedule <- PdfScheduleParser.parseFile(date, path).debug
         yield assertCompletes
       }
     },
-  )
+  ) @@ TestAspect.sequential

@@ -36,3 +36,11 @@ create table class_time_lesson
     primary key (class_name_id, timeslot_id, lesson_id)
 );
 
+create table subheader
+(
+    id          uuid primary key,
+    date        date not null,
+    timeslot_id uuid references timeslot (id),
+    content     text not null
+);
+

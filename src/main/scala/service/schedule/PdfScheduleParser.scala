@@ -82,72 +82,169 @@ object PdfScheduleParser:
 
   private def parseTable(date: LocalDate, table: List[List[PdfCell]]): IO[
     DomainError,
-    (Option[String], Set[TimeSlot], Map[LessonId, Lesson], Set[ClassName]),
+    (
+      Option[String],        // Potential header text from the first row if not class names
+      Vector[TimeSlot],      // Timeslots in order
+      Map[LessonId, Lesson], // All parsed lessons
+      Set[ClassName],        // All parsed class names
+      Set[Subheader],        // All parsed subheaders
+    ),
   ] =
     table match
       case head :: rest =>
         for
+          // Try parsing the first row as class names, otherwise treat it as header text
           headerOrClassNames <-
             parseClassNamesRow(date, head).asRight.orElseSucceed(Left(parseTextOnlyRow(head)))
-          (_, _, timeslots, lessons, classNames) <-
-            ZIO.foldLeft(rest)(
-              (
-                headerOrClassNames.toOption,
-                Option.empty[List[Option[Lesson]]],
-                Set.empty[TimeSlot],
-                Map.empty[LessonId, Lesson],
-                Set.empty[ClassName],
-              ),
-            ) {
-              case (
-                    (maybeClassNames, previousRowLessons, timeslots, lessons, allClassNames),
-                    row,
-                  ) =>
-                maybeClassNames match
-                  case None => parseClassNamesRow(date, row).map { classNames =>
-                      (Some(classNames), None, timeslots, lessons, allClassNames ++ classNames)
+
+          initialState = (
+            headerOrClassNames.toOption,        // maybeClassNames: Option[List[ClassName]]
+            Option.empty[List[Option[Lesson]]], // previousRowLessons: Option[List[Option[Lesson]]]
+            Option.empty[TimeSlotId],           // lastTimeSlotId: Option[TimeSlotId]
+            Vector.empty[TimeSlot],             // timeslots: Vector[TimeSlot]
+            Map.empty[LessonId, Lesson],        // lessons: Map[LessonId, Lesson]
+            Set.empty[ClassName],               // allClassNames: Set[ClassName]
+            Set.empty[Subheader],               // subheaders: Set[Subheader]
+          )
+
+          // Fold over the rest of the table rows
+          (
+            _, // final maybeClassNames (unused)
+            _, // final previousRowLessons (unused)
+            _, // final lastTimeSlotId (unused)
+            timeslots,
+            lessons,
+            classNames,
+            subheaders,
+          ) <- ZIO.foldLeft(rest)(initialState) {
+            case (
+                  (
+                    maybeClassNames,
+                    previousRowLessons,
+                    lastTimeSlotId,
+                    timeslots,
+                    lessons,
+                    allClassNames,
+                    subheaders,
+                  ),
+                  row, // Current row being processed
+                ) =>
+              maybeClassNames match
+                // State 1: Expecting class names row
+                case None =>
+                  parseClassNamesRow(date, row)
+                    .map { parsedClassNames =>
+                      // Successfully parsed class names
+                      (
+                        Some(parsedClassNames),
+                        None, // Reset previousRowLessons
+                        lastTimeSlotId,
+                        timeslots,
+                        lessons,
+                        allClassNames ++ parsedClassNames, // Add new class names
+                        subheaders,
+                      )
                     }
-                  case Some(classNames) =>
-                    parseLessonsRow(date, previousRowLessons, classNames, row)
-                      .map { case (timeSlot, rowLessons) =>
-                        (
-                          maybeClassNames,
-                          Some(rowLessons),
-                          timeslots + timeSlot,
-                          lessons ++ rowLessons.collect { case Some(lesson) =>
-                            lesson.id -> lesson
-                          },
-                          allClassNames,
-                        )
-                      }
-                      .catchSome {
-                        case _: ParseError =>
-                          ZIO.succeed((None, None, timeslots, lessons, allClassNames))
-                      }
-            }
-        yield (headerOrClassNames.left.toOption, timeslots, lessons, classNames)
+                    .orElse {
+                      // Failed to parse as class names, treat as text-only
+                      val text = parseTextOnlyRow(row)
+
+                      SubheaderId
+                        .makeRandom()
+                        .map { id =>
+                          (
+                            None, // Still expecting class names
+                            None,
+                            lastTimeSlotId,
+                            timeslots,
+                            lessons,
+                            allClassNames,
+                            subheaders ++ Option
+                              .when(text.nonEmpty)(Subheader(id, date, lastTimeSlotId, text)),
+                          )
+                        }
+                    }
+
+                // State 2: Expecting lessons row
+                case Some(currentClassNames) =>
+                  parseLessonsRow(date, previousRowLessons, currentClassNames, row)
+                    .map { case (timeSlot, rowLessons) =>
+                      // Successfully parsed lessons row
+                      (
+                        Some(currentClassNames), // Remain in lesson parsing state
+                        Some(rowLessons),  // Store current lessons as previous for next iteration
+                        Some(timeSlot.id), // Update last parsed timeslot ID
+                        timeslots :+ timeSlot, // Add new timeslot
+                        lessons ++ rowLessons.collect { case Some(lesson) =>
+                          lesson.id -> lesson
+                        }, // Add new lessons
+                        allClassNames,
+                        subheaders,
+                      )
+                    }
+                    .catchSome { case _: ParseError =>
+                      // Failed to parse as lessons, treat as text-only
+                      val text = parseTextOnlyRow(row)
+
+                      SubheaderId
+                        .makeRandom()
+                        .map { id =>
+                          (
+                            Some(currentClassNames), // Remain in lesson parsing state
+                            None,                    // Reset previousRowLessons
+                            lastTimeSlotId,          // Keep the same lastTimeSlotId
+                            timeslots,
+                            lessons,
+                            allClassNames,
+                            subheaders ++ Option
+                              .when(text.nonEmpty)(Subheader(id, date, lastTimeSlotId, text)),
+                          )
+                        }
+                    }
+          }
+        // Return the accumulated results, using the potential header text derived initially
+        yield (headerOrClassNames.left.toOption, timeslots, lessons, classNames, subheaders)
       case _ => ZIO.fail(ParseError("Table is empty"))
 
-  private def parseTables(date: LocalDate)
-    : List[List[List[PdfCell]]] => IO[DomainError, DaySchedule] = {
+  private def parseTables(
+    date: LocalDate,
+  ): List[List[List[PdfCell]]] => IO[DomainError, DaySchedule] = {
     case firstTable :: rest =>
       for
-        (maybeHeader, timeslots, lessons, classNames) <- parseTable(date, firstTable)
-        (timeslots, lessons, classNames) <-
-          ZIO.foldLeft(rest)((timeslots, lessons, classNames)) {
-            case ((accTimeslots, accLessons, accClassNames), table) =>
-              parseTable(date, table).map { case (_, newTimeslots, newLessons, newClassNames) =>
+        // Parse the first table
+        (maybeHeader, initialTimeslots, initialLessons, initialClassNames, initialSubheaders) <-
+          parseTable(date, firstTable)
+
+        // Fold over the rest of the tables, accumulating results
+        (
+          timeslots,
+          lessons,
+          classNames,
+          subheaders,
+        ) <-
+          ZIO.foldLeft(rest)(
+            (initialTimeslots, initialLessons, initialClassNames, initialSubheaders),
+          ) { case ((accTimeslots, accLessons, accClassNames, accSubheaders), table) =>
+            parseTable(date, table).map {
+              case (_, newTimeslots, newLessons, newClassNames, newSubheaders) =>
                 (
                   accTimeslots ++ newTimeslots,
                   accLessons ++ newLessons,
                   accClassNames ++ newClassNames,
+                  accSubheaders ++ newSubheaders,
                 )
-              }
+            }
           }
+
+        // Ensure a header was found (either from the first row of the first table or explicitly)
         dayInfo <- ZIO.getOrFailWith(
-          ParseError("Table header is empty"),
-        )(maybeHeader)
-      yield DaySchedule.make(date, dayInfo, timeslots, classNames, lessons.values)
+          ParseError("Table header is empty or could not be determined"),
+        )(
+          maybeHeader,
+        ) // Assumes header comes from the first table's first row if it wasn't class names
+
+      // Create the final DaySchedule domain object
+      yield DaySchedule.make(date, dayInfo, timeslots, classNames, lessons.values, subheaders)
     case _ => ZIO.fail(ParseError("No tables found in the file"))
   }
 

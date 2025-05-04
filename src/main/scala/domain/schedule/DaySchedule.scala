@@ -10,6 +10,7 @@ case class DaySchedule(
   timeSlots: Set[TimeSlot],
   classNames: Set[ClassName],
   lessons: Map[(TimeSlotId, ClassNameId), Lesson],
+  subheaders: Set[Subheader],
 ):
   private lazy val timeslotMap = timeSlots.map(timeSlot => timeSlot.id -> timeSlot).toMap
 
@@ -40,6 +41,7 @@ object DaySchedule:
     timeslots: Iterable[TimeSlot],
     classnames: Iterable[ClassName],
     lessons: Iterable[Lesson],
+    subheaders: Iterable[Subheader],
   ): DaySchedule =
     DaySchedule(
       date,
@@ -52,4 +54,5 @@ object DaySchedule:
           tid    <- lesson.timeSlots
         yield (tid, cid) -> lesson
       }.toMap,
+      subheaders.toSet,
     )

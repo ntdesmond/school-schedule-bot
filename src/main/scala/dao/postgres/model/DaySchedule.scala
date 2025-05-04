@@ -8,6 +8,7 @@ case class DaySchedule(date: LocalDate, header: String):
     timeslots: Iterable[domain.schedule.TimeSlot],
     classnames: Iterable[domain.ClassName],
     domainLessons: Iterable[domain.schedule.Lesson],
+    subheaders: Iterable[domain.schedule.Subheader],
   ): domain.schedule.DaySchedule =
     domain
       .schedule
@@ -18,4 +19,5 @@ case class DaySchedule(date: LocalDate, header: String):
         timeslots,
         classnames,
         domainLessons,
+        subheaders,
       )

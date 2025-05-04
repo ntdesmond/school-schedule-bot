@@ -11,3 +11,4 @@ object Schema:
   inline def timeslot: EntityQuery[TimeSlot]               = querySchema("timeslot")
   inline def className: EntityQuery[ClassName]             = querySchema("classname")
   inline def classTimeLesson: EntityQuery[ClassTimeLesson] = querySchema("class_time_lesson")
+  inline def subheader: EntityQuery[Subheader]             = querySchema("subheader")

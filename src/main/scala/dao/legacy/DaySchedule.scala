@@ -6,6 +6,7 @@ import domain.ClassNameId
 import domain.schedule.Lesson
 import domain.schedule.LessonId
 import domain.schedule.LessonName
+import domain.schedule.Subheader
 import domain.schedule.TimeSlot
 import domain.schedule.TimeSlotId
 import java.time.LocalDate
@@ -51,7 +52,7 @@ case class DaySchedule(
     yield domain
       .schedule
       .DaySchedule
-      .make(date, dayInfo, timeSlots.toSet, classnames, lessons.values)
+      .make(date, dayInfo, timeSlots.toSet, classnames, lessons.values, Set.empty[Subheader])
 
   private def columnToDomain(
     date: LocalDate,
